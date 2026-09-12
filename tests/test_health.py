@@ -7,6 +7,7 @@ from django.core.management.base import CommandError
 from django.db import DatabaseError
 from django.utils import timezone
 
+from django_ox.durations import parse_seconds
 from django_ox.management.commands import ox_health
 from django_ox.models import OxTask
 
@@ -116,6 +117,29 @@ class TestHealth:
         assert "oldest waiting task" in message
         assert "\n" not in message
 
+    def test_max_age_accepts_the_duration_forms_prune_accepts(self):
+        make_ready(seconds_ago=120)
+        with pytest.raises(CommandError, match="over --max-age 60s"):
+            health("--max-age=1m")
+
+    def test_worker_timeout_accepts_the_duration_forms_prune_accepts(self):
+        make_claimed(seconds_ago=7200)
+        with pytest.raises(CommandError, match="over --worker-timeout 1800s"):
+            health("--worker-timeout=30m")
+
+    def test_max_age_still_accepts_a_fractional_number_of_seconds(self):
+        make_ready(seconds_ago=120)
+        with pytest.raises(CommandError, match=r"over --max-age 60\.5s"):
+            health("--max-age=60.5")
+
+    def test_worker_timeout_still_accepts_a_fractional_number_of_seconds(self):
+        make_claimed(seconds_ago=10)
+        health("--worker-timeout=60.5")
+
+    def test_a_duration_with_no_meaning_is_rejected_with_the_duration_message(self):
+        with pytest.raises(CommandError, match="Invalid duration 'banana'"):
+            health("--max-age=banana")
+
     @pytest.mark.parametrize(
         "flag",
         ["--max-backlog=-1", "--max-age=0", "--worker-timeout=-5"],
@@ -123,3 +147,29 @@ class TestHealth:
     def test_rejects_bad_thresholds(self, flag):
         with pytest.raises(CommandError, match="must be"):
             health(flag)
+
+
+class TestParseSeconds:
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("7d", 604800.0),
+            ("24h", 86400.0),
+            ("90m", 5400.0),
+            ("45s", 45.0),
+            ("3600", 3600.0),
+            (" 7d ", 604800.0),
+            ("120.5", 120.5),
+            ("0.001", 0.001),
+        ],
+    )
+    def test_accepted_forms(self, value, expected):
+        assert parse_seconds(value) == expected
+
+    @pytest.mark.parametrize("value", ["banana", "", "7w", "d7", "7 d"])
+    def test_rejects_garbage(self, value):
+        with pytest.raises(CommandError):
+            parse_seconds(value)
+
+    def test_negative_numbers_parse_so_the_command_can_report_them(self):
+        assert parse_seconds("-5") == -5.0

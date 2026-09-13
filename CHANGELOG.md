@@ -10,11 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `ox_health --max-age` and `--worker-timeout` accept the duration forms
-  `ox_prune --older-than` already took (`7d`, `24h`, `90m`, `45s`), so
-  `--max-age 7d` no longer fails with an argparse error. A plain number of
-  seconds still means seconds, fractional values included, so existing
-  healthchecks keep working unchanged. The parser moved to
-  `django_ox.durations`; it stays importable from `ox_prune` for now.
+  `ox_prune --older-than` takes (`7d`, `24h`, `90m`, `45s`). A plain number
+  still means seconds, fractions included.
 
 ## [1.2.0] - 2026-09-12
 

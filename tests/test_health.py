@@ -1,3 +1,4 @@
+import argparse
 from datetime import timedelta
 from io import StringIO
 
@@ -137,8 +138,24 @@ class TestHealth:
         health("--worker-timeout=60.5")
 
     def test_a_duration_with_no_meaning_is_rejected_with_the_duration_message(self):
-        with pytest.raises(CommandError, match="Invalid duration 'banana'"):
+        with pytest.raises(
+            CommandError, match="argument --max-age: invalid duration 'banana'"
+        ):
             health("--max-age=banana")
+
+    def test_a_bad_duration_on_the_command_line_is_a_usage_error(self, capsys):
+        with pytest.raises(SystemExit) as exit_info:
+            ox_health.Command().run_from_argv(
+                ["manage.py", "ox_health", "--max-age=banana"]
+            )
+        assert exit_info.value.code == 2
+        err = capsys.readouterr().err
+        assert "argument --max-age: invalid duration 'banana'" in err
+        assert "Traceback" not in err
+
+    def test_a_large_plain_number_of_seconds_still_parses(self):
+        make_claimed(seconds_ago=10)
+        health("--worker-timeout=100000000000000")
 
     @pytest.mark.parametrize(
         "flag",
@@ -161,15 +178,26 @@ class TestParseSeconds:
             (" 7d ", 604800.0),
             ("120.5", 120.5),
             ("0.001", 0.001),
+            ("1e3", 1000.0),
+            ("-5", -5.0),
+            ("100000000000000", 1e14),
         ],
     )
     def test_accepted_forms(self, value, expected):
         assert parse_seconds(value) == expected
 
-    @pytest.mark.parametrize("value", ["banana", "", "7w", "d7", "7 d"])
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "banana",
+            "",
+            "7w",
+            "d7",
+            "7 d",
+            "1.5d",
+            pytest.param("9" * 400 + "d", id="overflow"),
+        ],
+    )
     def test_rejects_garbage(self, value):
-        with pytest.raises(CommandError):
+        with pytest.raises(argparse.ArgumentTypeError):
             parse_seconds(value)
-
-    def test_negative_numbers_parse_so_the_command_can_report_them(self):
-        assert parse_seconds("-5") == -5.0

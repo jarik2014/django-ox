@@ -41,8 +41,8 @@ class Command(BaseCommand):
             default=None,
             help=(
                 "Fail when the oldest task waiting to run has waited longer "
-                "than this. Forms: 7d, 24h, 90m, 45s, or a plain number of "
-                "seconds (default: no age check)."
+                "than this since becoming eligible. Accepts 7d, 24h, 90m, 45s, "
+                "or a plain number of seconds (default: no age check)."
             ),
         )
         parser.add_argument(
@@ -50,9 +50,9 @@ class Command(BaseCommand):
             type=parse_seconds,
             default=None,
             help=(
-                "Fail when no worker has claimed a task within this much "
-                "time. Forms: 7d, 24h, 90m, 45s, or a plain number of "
-                "seconds. Claim activity is the only worker trace in the "
+                "Fail when no worker has claimed a task within this long. "
+                "Accepts 7d, 24h, 90m, 45s, or a plain number of seconds. "
+                "Claim activity is the only worker trace in the "
                 "database, so this check suits queues with steady traffic; "
                 "for bursty queues prefer --max-age (default: no worker "
                 "check)."
